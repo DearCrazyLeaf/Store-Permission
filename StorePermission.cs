@@ -120,6 +120,8 @@ public class StorePermission : BasePlugin, IPluginConfig<StorePermissionConfig>
     if (!Config.Items.ContainsKey(itemName)) return;
 
     var item = Config.Items[itemName];
+    if (!item.CanSell) return; // cannot sell if config forbids
+
     var ratio = Math.Clamp(Config.SellRatio, 0, 1);
     int refund = (int)Math.Floor(item.Price * ratio);
     if (refund < 0) refund = 0;
@@ -155,31 +157,54 @@ public class StorePermission : BasePlugin, IPluginConfig<StorePermissionConfig>
       if (owned.Contains(kv.Key))
       {
         int refund = (int)Math.Floor(kv.Value.Price * Math.Clamp(Config.SellRatio, 0, 1));
-        menu.AddOption(new SubMenuOption
+        // If item cannot be sold, show without sell submenu or with limited submenu
+        if (!kv.Value.CanSell)
         {
-          Text = $"{kv.Key} [{Localizer["menu.bought"]}]",
-          NextMenu = new WasdModelMenu
+          menu.AddOption(new SubMenuOption
           {
-            Title = Localizer["menu.manage", kv.Key],
-            Options = new List<MenuOption>
+            Text = $"{kv.Key} [{Localizer["menu.bought"]}]",
+            NextMenu = new WasdModelMenu
             {
-              new SelectOption
+              Title = Localizer["menu.manage", kv.Key],
+              Options = new List<MenuOption>
               {
-                Text = Localizer["menu.sell", refund],
-                Select = (p,o,sub)=>
+                new SelectOption
                 {
-                  SellPlayerPermissionItem(p, kv.Key);
-                  MenuManager.OpenMainMenu(p, BuildMainMenu(p));
+                  Text = Localizer["menu.back"],
+                  Select = (p,o,sub)=> { MenuManager.GetPlayer(p.Slot).Prev(); }
                 }
-              },
-              new SelectOption
-              {
-                Text = Localizer["menu.back"],
-                Select = (p,o,sub)=> { MenuManager.GetPlayer(p.Slot).Prev(); }
               }
             }
-          }
-        });
+          });
+        }
+        else
+        {
+          menu.AddOption(new SubMenuOption
+          {
+            Text = $"{kv.Key} [{Localizer["menu.bought"]}]",
+            NextMenu = new WasdModelMenu
+            {
+              Title = Localizer["menu.manage", kv.Key],
+              Options = new List<MenuOption>
+              {
+                new SelectOption
+                {
+                  Text = Localizer["menu.sell", refund],
+                  Select = (p,o,sub)=>
+                  {
+                    SellPlayerPermissionItem(p, kv.Key);
+                    MenuManager.OpenMainMenu(p, BuildMainMenu(p));
+                  }
+                },
+                new SelectOption
+                {
+                  Text = Localizer["menu.back"],
+                  Select = (p,o,sub)=> { MenuManager.GetPlayer(p.Slot).Prev(); }
+                }
+              }
+            }
+          });
+        }
         continue;
       }
 
